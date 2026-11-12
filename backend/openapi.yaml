@@ -1,0 +1,588 @@
+openapi: 3.1.0
+info:
+  title: Carutine 갤러리 API
+  version: 0.1.0
+  description: |
+    Carutine(차량판 단축어) 루틴 갤러리·공유 API. 루틴 실행은 모두 차량 안에서 일어나고,
+    서버는 공유된 루틴을 보관하고 차량이 보낸 지원 기능(caps)으로 호환 상태를 계산해 내려준다.
+
+    - 인증: `POST /v1/devices`로 받은 토큰을 `Authorization: Bearer <token>`으로 보낸다(기기 등록·헬스체크 제외).
+    - 루틴 본문(spec)은 루틴 데이터 계약 v0.1(백엔드 문서 3장)을 따른다. 이 명세의 `RoutineSpec`은 그 요약이며,
+      세부 규칙(값 범위, trigger·conditions 구조)은 서버의 zod 스키마(`src/domain/contract.ts`)가 원본이다.
+    - 개인정보(위치 좌표, 차량 식별번호, 이름·연락처)는 받거나 저장하지 않는다.
+    - 오류는 모두 `Error` 형식으로 내려간다.
+servers:
+  - url: http://localhost:3000
+    description: 로컬
+tags:
+  - name: system
+  - name: device
+  - name: gallery
+  - name: routine
+security:
+  - deviceToken: []
+
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      summary: 서버 상태 (시연 전 서버 깨우기용)
+      security: []
+      responses:
+        '200':
+          description: 정상
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503':
+          description: DB 연결 실패
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+
+  /v1/devices:
+    post:
+      tags: [device]
+      summary: 익명 기기 등록, 토큰 발급
+      description: 토큰은 이 응답에서 한 번만 내려가고 서버에는 SHA-256 해시만 저장된다. IP당 시간당 10회 제한.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                appVersion: { type: string, maxLength: 20, pattern: '^[0-9A-Za-z.+-]+$', examples: ['0.1.0'] }
+      responses:
+        '201':
+          description: 등록됨
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deviceId, token]
+                additionalProperties: false
+                properties:
+                  deviceId: { type: string, pattern: '^dv_[0-9A-HJKMNP-TV-Z]{26}$' }
+                  token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$', description: 32바이트 난수(base64url) }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/gallery/shelves:
+    get:
+      tags: [gallery]
+      summary: 갤러리 홈 선반 3개 (now / popular / official)
+      description: |
+        선반당 최대 10개. caps를 보내면 compat = none인 루틴은 빠진다.
+        - now: 겨울이면 '겨울' 태그, 여름이면 '여름' 태그, 6~10시·17~21시면 commute, 19시~5시면 night를 우선한다.
+          맞는 규칙이 많은 순 → featured_rank 순. 하나도 맞지 않으면 official과 같은 순서로 채운다.
+        - popular: 최근 7일 가져오기 수 → featured_rank 순.
+        - official: 공식 루틴을 featured_rank 순.
+      parameters:
+        - $ref: '#/components/parameters/caps'
+        - name: season
+          in: query
+          schema: { type: string, enum: [spring, summer, autumn, winter] }
+        - name: hour
+          in: query
+          description: 차량 현지 시각(0~23)
+          schema: { type: integer, minimum: 0, maximum: 23 }
+      responses:
+        '200':
+          description: 선반 3개 (항상 now, popular, official 순서)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shelves]
+                additionalProperties: false
+                properties:
+                  shelves:
+                    type: array
+                    minItems: 3
+                    maxItems: 3
+                    items:
+                      type: object
+                      required: [id, title, items]
+                      additionalProperties: false
+                      properties:
+                        id: { type: string, enum: [now, popular, official] }
+                        title: { type: string }
+                        items:
+                          type: array
+                          maxItems: 10
+                          items: { $ref: '#/components/schemas/RoutineCard' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/routines:
+    get:
+      tags: [gallery]
+      summary: 카테고리·검색 목록
+      description: |
+        q는 이름·설명·태그 부분 일치. compat=hide_none(기본)이고 caps가 있으면 compat = none을 뺀다
+        (이때 한 페이지가 limit보다 적게 올 수 있다. 끝은 nextCursor가 null인 것으로 판단한다).
+      parameters:
+        - $ref: '#/components/parameters/caps'
+        - name: category
+          in: query
+          schema: { $ref: '#/components/schemas/Category' }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 50 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [popular, new], default: popular }
+        - name: compat
+          in: query
+          schema: { type: string, enum: [hide_none, all], default: hide_none }
+        - name: cursor
+          in: query
+          description: 앞 응답의 nextCursor 그대로
+          schema: { type: string, maxLength: 200 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/RoutineCard' }
+                  nextCursor: { type: [string, 'null'] }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    post:
+      tags: [routine]
+      summary: 공유(올리기)
+      description: |
+        spec은 계약 v0.1. id는 서버가 발급하므로 보내지 않는다(보내도 무시). category는 서버가 규칙으로 다시 계산한다.
+        거부 사유(details.reason): 스키마 위반(UNKNOWN_FIELD, TOO_LONG, OUT_OF_RANGE 등), COORDINATE, URL, PHONE, EMAIL,
+        BANNED_WORD, DUPLICATE(같은 기기가 1분 안에 같은 spec). 기기당 하루 10회.
+      parameters:
+        - $ref: '#/components/parameters/caps'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [spec]
+              additionalProperties: false
+              properties:
+                spec: { $ref: '#/components/schemas/RoutineSpecInput' }
+      responses:
+        '201':
+          description: 올라감
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoutineDetail' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/routines/{id}:
+    parameters:
+      - $ref: '#/components/parameters/routineId'
+    get:
+      tags: [gallery]
+      summary: 상세 (spec 포함)
+      parameters:
+        - $ref: '#/components/parameters/caps'
+      responses:
+        '200':
+          description: 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoutineDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    delete:
+      tags: [routine]
+      summary: 내가 올린 루틴 내리기 (soft delete)
+      responses:
+        '204': { description: 내려감 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/routines/{id}/import:
+    parameters:
+      - $ref: '#/components/parameters/routineId'
+    post:
+      tags: [routine]
+      summary: 가져오기 (기기당 1회 집계, 여러 번 호출해도 안전)
+      responses:
+        '200':
+          description: 앱은 받은 spec을 로컬에 저장하고 장소를 지정한다
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spec, importCount]
+                additionalProperties: false
+                properties:
+                  spec: { $ref: '#/components/schemas/RoutineSpec' }
+                  importCount: { type: integer, minimum: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/routines/{id}/like:
+    parameters:
+      - $ref: '#/components/parameters/routineId'
+    put:
+      tags: [routine]
+      summary: 좋아요 (멱등)
+      responses:
+        '200': { $ref: '#/components/responses/LikeState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    delete:
+      tags: [routine]
+      summary: 좋아요 취소 (멱등)
+      responses:
+        '200': { $ref: '#/components/responses/LikeState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/routines/{id}/report:
+    parameters:
+      - $ref: '#/components/parameters/routineId'
+    post:
+      tags: [routine]
+      summary: 신고
+      description: 같은 기기의 중복 신고는 202로 무시. 서로 다른 기기 3곳이 신고하면 숨겨진다(공식 루틴 제외). 기기당 하루 20회.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              additionalProperties: false
+              properties:
+                reason: { type: string, enum: [inappropriate, spam, unsafe, other] }
+                detail: { type: string, maxLength: 200 }
+      responses:
+        '202':
+          description: 접수
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accepted]
+                additionalProperties: false
+                properties:
+                  accepted: { const: true }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+components:
+  securitySchemes:
+    deviceToken:
+      type: http
+      scheme: bearer
+      description: POST /v1/devices로 받은 토큰
+
+  parameters:
+    caps:
+      name: caps
+      in: query
+      description: |
+        차량이 지원하는 Cap 키를 쉼표로. 모르는 키는 무시. 없으면 compat은 null이고 걸러내지 않는다.
+        키: location, time, ev.battery, fuel.level, wiper.state, hvac.cabinTemp, hvac.temp, hvac.fan, hvac.air,
+        seat.heater, steeringwheel.heater, sidemirror.heater, light.ambient, tts, navi.waypoint
+      schema: { type: string, examples: ['location,time,hvac.temp,hvac.fan,hvac.air,hvac.cabinTemp,tts,navi.waypoint,ev.battery'] }
+    routineId:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/RoutineId' }
+
+  responses:
+    LikeState:
+      description: 현재 좋아요 상태
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [likeCount, likedByMe]
+            additionalProperties: false
+            properties:
+              likeCount: { type: integer, minimum: 0 }
+              likedByMe: { type: boolean }
+    ValidationFailed:
+      description: 스키마·규칙 위반, 금지어 (VALIDATION_FAILED)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: 토큰 없음·잘못됨 (UNAUTHORIZED)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: 남의 루틴 삭제 (FORBIDDEN)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: 없는 루틴, 숨김·삭제된 루틴 (NOT_FOUND)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: 요청 횟수 초과 (RATE_LIMITED)
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: 다시 시도할 수 있을 때까지 초
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Health:
+      type: object
+      required: [status, db, seedVersion, time]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        db: { type: string, enum: [ok, down] }
+        seedVersion: { type: string }
+        time: { type: string, format: date-time }
+
+    Error:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          additionalProperties: false
+          properties:
+            code: { type: string, enum: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, RATE_LIMITED, INTERNAL] }
+            message: { type: string, description: 사용자에게 보여줄 수 있는 한국어 문장 }
+            details:
+              type: array
+              items:
+                type: object
+                required: [field, reason]
+                additionalProperties: false
+                properties:
+                  field: { type: string, examples: [spec.name] }
+                  reason: { type: string, examples: [TOO_LONG, COORDINATE, BANNED_WORD, DUPLICATE] }
+
+    RoutineId:
+      type: string
+      pattern: '^rt_[0-9A-HJKMNP-TV-Z]{26}$'
+
+    Category:
+      type: string
+      enum: [commute, weather, ev, family, night, etc]
+
+    ActionType:
+      type: string
+      enum: [hvac_temp, hvac_fan, hvac_air, seat_heater, steering_heater, mirror_heater, ambient_light, speak, suggest_charger]
+
+    RoutineCard:
+      description: 목록·선반의 루틴 카드. 작성자 정보는 없다. 조건 요약 문구는 앱이 triggerType으로 만든다.
+      allOf:
+        - $ref: '#/components/schemas/RoutineCardFields'
+      unevaluatedProperties: false
+
+    RoutineCardFields:
+      type: object
+      required: [id, name, description, category, tags, triggerType, actionTypes, compat, unsupportedActions,
+                 fallbackActions, importCount, likeCount, likedByMe, isOfficial, isMine, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/RoutineId' }
+        name: { type: string }
+        description: { type: string }
+        category: { $ref: '#/components/schemas/Category' }
+        tags: { type: array, items: { type: string } }
+        triggerType:
+          type: [string, 'null']
+          enum: [location_enter, location_exit, energy_below, wiper_on, null]
+          description: null이면 수동 루틴(버튼·음성으로만 실행)
+        actionTypes: { type: array, items: { $ref: '#/components/schemas/ActionType' } }
+        compat:
+          type: [string, 'null']
+          enum: [full, partial, none, null]
+          description: caps를 보내지 않으면 null
+        unsupportedActions: { type: array, items: { $ref: '#/components/schemas/ActionType' } }
+        fallbackActions: { type: array, items: { $ref: '#/components/schemas/ActionType' } }
+        importCount: { type: integer, minimum: 0 }
+        likeCount: { type: integer, minimum: 0 }
+        likedByMe: { type: boolean }
+        isOfficial: { type: boolean }
+        isMine: { type: boolean, description: 요청한 기기가 올린 루틴일 때만 true }
+        createdAt: { type: string, format: date-time }
+
+    RoutineDetail:
+      description: 카드 필드 + spec
+      allOf:
+        - $ref: '#/components/schemas/RoutineCardFields'
+      type: object
+      required: [spec]
+      properties:
+        spec: { $ref: '#/components/schemas/RoutineSpec' }
+      unevaluatedProperties: false
+
+    RoutineSpec:
+      type: object
+      description: 루틴 데이터 계약 v0.1 (백엔드 문서 3장 요약)
+      required: [schemaVersion, id, name, description, category, tags, trigger, conditions, actions]
+      additionalProperties: false
+      properties:
+        schemaVersion: { const: 1 }
+        id: { $ref: '#/components/schemas/RoutineId' }
+        name: { type: string, minLength: 1, maxLength: 20 }
+        description: { type: string, maxLength: 80 }
+        category: { $ref: '#/components/schemas/Category' }
+        tags: { type: array, maxItems: 5, items: { type: string, minLength: 1, maxLength: 10 } }
+        trigger:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Trigger'
+        conditions: { type: array, maxItems: 2, items: { $ref: '#/components/schemas/Condition' } }
+        actions: { type: array, minItems: 1, maxItems: 5, items: { $ref: '#/components/schemas/Action' } }
+
+    RoutineSpecInput:
+      description: 올리기용 spec. id는 보내지 않는다(보내도 무시). category는 보내도 서버가 덮어쓴다.
+      type: object
+      required: [schemaVersion, name, description, tags, trigger, conditions, actions]
+      additionalProperties: false
+      properties:
+        schemaVersion: { const: 1 }
+        id: { description: 무시됨 }
+        name: { type: string, minLength: 1, maxLength: 20 }
+        description: { type: string, maxLength: 80 }
+        category: { $ref: '#/components/schemas/Category' }
+        tags: { type: array, maxItems: 5, items: { type: string, minLength: 1, maxLength: 10 } }
+        trigger:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Trigger'
+        conditions: { type: array, maxItems: 2, items: { $ref: '#/components/schemas/Condition' } }
+        actions: { type: array, minItems: 1, maxItems: 5, items: { $ref: '#/components/schemas/Action' } }
+
+    Place:
+      type: string
+      enum: [home, work, custom1, custom2, custom3]
+      description: 장소 키만 담는다. 좌표는 각 차량에만 있다.
+
+    Trigger:
+      oneOf:
+        - type: object
+          required: [type, place]
+          additionalProperties: false
+          properties:
+            type: { type: string, enum: [location_enter, location_exit] }
+            place: { $ref: '#/components/schemas/Place' }
+        - type: object
+          required: [type, source, percent]
+          additionalProperties: false
+          properties:
+            type: { const: energy_below }
+            source: { type: string, enum: [ev_battery, fuel] }
+            percent: { type: integer, minimum: 1, maximum: 99 }
+        - type: object
+          required: [type]
+          additionalProperties: false
+          properties:
+            type: { const: wiper_on }
+
+    Condition:
+      oneOf:
+        - type: object
+          required: [type, days, start, end]
+          additionalProperties: false
+          properties:
+            type: { const: time_window }
+            days:
+              type: array
+              minItems: 1
+              maxItems: 7
+              uniqueItems: true
+              items: { type: string, enum: [mon, tue, wed, thu, fri, sat, sun] }
+            start: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+            end: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        - type: object
+          required: [type, op, value]
+          additionalProperties: false
+          properties:
+            type: { const: cabin_temp }
+            op: { type: string, enum: [below, above] }
+            value: { type: integer, minimum: -20, maximum: 50 }
+
+    ActionBase:
+      oneOf:
+        - type: object
+          required: [type, mode, value]
+          properties:
+            type: { const: hvac_temp }
+            mode: { type: string, enum: [set, delta], description: 'set: 16~30, delta: -3~3(0 제외)' }
+            value: { type: number, minimum: -3, maximum: 30 }
+        - type: object
+          required: [type, level]
+          properties:
+            type: { const: hvac_fan }
+            level: { type: integer, minimum: 0, maximum: 10 }
+        - type: object
+          required: [type, mode]
+          properties:
+            type: { const: hvac_air }
+            mode: { type: string, enum: [recirc, fresh] }
+        - type: object
+          required: [type, seat, level]
+          properties:
+            type: { const: seat_heater }
+            seat: { type: string, enum: [driver, passenger] }
+            level: { type: integer, minimum: 0, maximum: 3 }
+        - type: object
+          required: [type, on]
+          properties:
+            type: { type: string, enum: [steering_heater, mirror_heater] }
+            on: { type: boolean }
+        - type: object
+          required: [type, on]
+          properties:
+            type: { const: ambient_light }
+            on: { type: boolean }
+            color: { type: string, enum: [warm, cool, blue, red] }
+            brightness: { type: string, enum: [low, default] }
+        - type: object
+          required: [type, text]
+          properties:
+            type: { const: speak }
+            text: { type: string, minLength: 1, maxLength: 40 }
+        - type: object
+          required: [type]
+          properties:
+            type: { const: suggest_charger }
+
+    Action:
+      description: 동작 1개. fallback은 이 차에 그 기능이 없을 때 대신 할 동작(1단계만, fallback 안의 fallback 금지).
+      allOf:
+        - $ref: '#/components/schemas/ActionBase'
+      properties:
+        fallback: { $ref: '#/components/schemas/ActionBase' }
