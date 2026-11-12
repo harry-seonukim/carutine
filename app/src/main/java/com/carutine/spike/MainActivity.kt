@@ -5,7 +5,6 @@ import ai.pleos.playground.vehicle.api.model.area.DoorArea
 import ai.pleos.playground.vehicle.api.model.capability.AccessType
 import ai.pleos.playground.vehicle.api.model.capability.AreaBounds
 import ai.pleos.playground.vehicle.api.model.capability.CapabilityConfig
-import ai.pleos.playground.vehicle.callback.exception.VehicleException
 import ai.pleos.playground.vehicle.constant.area.DoorValue
 import ai.pleos.playground.vehicle.constant.unit.TemperatureUnit
 import ai.pleos.playground.vehicle.listener.DoorPositionListener
@@ -147,8 +146,11 @@ class MainActivity : ComponentActivity() {
 
     // ---------------------------------------------------------------- helpers
 
-    private fun describe(e: Exception): String =
-        if (e is VehicleException) "VehicleException(${e.errorCode}) ${e.message}" else "${e::class.simpleName} ${e.message}"
+    /**
+     * SDK 2.3.2 배포본(AAR)에서는 VehicleException이 난독화돼(`callback.exception.a`) 앱에서 참조할 수 없다.
+     * 메시지에 ErrorCode 이름(예: ERROR_SECURITY_PERMISSION)이 들어 있으므로 클래스 이름과 메시지만 남긴다.
+     */
+    private fun describe(e: Exception): String = "${e::class.java.name}: ${e.message}"
 
     private fun ui(block: () -> Unit) = runOnUiThread(block)
 
