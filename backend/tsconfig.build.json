@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "." },
+  "include": ["src", "seed/build-seed.ts", "seed/seed-source.ts"]
+}

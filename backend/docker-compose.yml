@@ -1,0 +1,35 @@
+# 로컬 개발용: Postgres 16 + API.  실행: docker compose up --build
+# 첫 실행 뒤 시드:  docker compose exec api node dist/src/cli.js seed
+# 여기 적힌 DB 비밀번호는 로컬 전용 값이다. 운영 접속 정보는 배포 환경 변수로만 넣는다.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: carutine
+      POSTGRES_PASSWORD: carutine_local_only
+      POSTGRES_DB: carutine
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carutine"]
+      interval: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://carutine:carutine_local_only@db:5432/carutine
+      REQUIRE_HTTPS: "false"      # 로컬은 HTTP. 운영(Render)에서는 기본값(true)을 쓴다
+      TRUST_PROXY: "false"
+      AUTO_SEED: "true"           # 시작할 때 시드 20개를 넣는다(여러 번 실행해도 안전)
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
