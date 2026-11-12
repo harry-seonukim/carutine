@@ -1,0 +1,29 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# 정리 대기 파일 (직접 삭제)
+/_to_delete
+
+# Android Studio 개인 설정
+/.idea/deploymentTargetSelector.xml
+/.idea/deviceManager.xml
+/.idea/AndroidProjectSystem.xml
+.kotlin/
+
+# 백엔드
+backend/node_modules/
+backend/dist/
+backend/.env
