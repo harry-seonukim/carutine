@@ -1,0 +1,8 @@
+# 이 경로를 바꾸는 PR은 담당자 승인이 있어야 main에 합칠 수 있다(main 브랜치 보호에서 'Require review from Code Owners'를 켜야 동작).
+# 지금은 팀 계정이 하나라 모두 PM(@harry-seonukim). 팀원 계정이 생기면 app/·backend/ 담당자를 바꾼다.
+*                                   @harry-seonukim
+
+# 루틴 데이터 계약 v0.1과 시드 원본: PM 승인 필수
+/backend/src/domain/contract.ts     @harry-seonukim
+/backend/seed/                      @harry-seonukim
+/app/src/main/assets/seed_routines.json @harry-seonukim
