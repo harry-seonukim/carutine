@@ -50,19 +50,42 @@ fun ShareScreen(c: AppController) {
     var result by remember { mutableStateOf<String?>(null) }
     val selected = c.routines.firstOrNull { it.localId == selectedId }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (!c.api.enabled) Note("서버 미연결: 오프라인 모드에서는 공유 미리보기만 할 수 있어요", warn = true)
-        if (c.routines.isEmpty()) Note("공유할 내 루틴이 없어요")
-        else {
-            SectionTitle("공유할 루틴")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                c.routines.forEach { r -> Choice(r.spec.name, r.localId == selectedId, { selectedId = r.localId; result = null }) }
+    val scope = rememberCoroutineScope()
+    Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (!c.api.enabled) Note("서버 미연결: 오프라인 모드에서는 공유 미리보기만 할 수 있어요", warn = true)
+            if (c.routines.isEmpty()) Note("공유할 내 루틴이 없어요")
+            else {
+                SectionTitle("공유할 루틴")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    c.routines.forEach { r -> Choice(r.spec.name, r.localId == selectedId, { selectedId = r.localId; result = null }) }
+                }
+            }
+            if (selected != null) ShareBody(c, selected.spec, result)
+        }
+        // 공유 버튼은 하단 고정
+        BottomBar {
+            val spec = selected?.spec
+            val ok = spec != null && RoutineValidator.validate(spec).isEmpty()
+            if (c.api.enabled) {
+                PrimaryButton(if (busy) "올리는 중…" else "갤러리에 공유", {
+                    if (spec != null) {
+                        busy = true
+                        scope.launch {
+                            c.share(spec)
+                                .onSuccess { result = "갤러리에 올렸어요"; c.showBanner("'${spec.name}' 공유 완료", tone = BannerTone.SUCCESS, durationMs = 3000) }
+                                .onFailure { result = "공유하지 못했어요: ${it.message}" }
+                            busy = false
+                        }
+                    }
+                }, Modifier.weight(1f), enabled = !busy && ok)
+            } else {
+                PrimaryButton("서버 연결 후 공유할 수 있어요", {}, Modifier.weight(1f), enabled = false)
             }
         }
-        if (selected != null) ShareBody(c, selected.spec, busy, result, onBusy = { busy = it }, onResult = { result = it })
     }
 }
 
@@ -70,12 +93,8 @@ fun ShareScreen(c: AppController) {
 private fun ShareBody(
     c: AppController,
     spec: com.carutine.model.RoutineSpec,
-    busy: Boolean,
     result: String?,
-    onBusy: (Boolean) -> Unit,
-    onResult: (String?) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     run {
         val problems = remember(spec) {
             RoutineValidator.validate(spec).map { "계약 검증 실패 ${it.field}: ${it.reason}" }
@@ -107,19 +126,6 @@ private fun ShareBody(
 
         problems.forEach { Text(it, color = Tok.danger, style = MaterialTheme.typography.bodyMedium) }
         result?.let { Note(it) }
-        if (c.api.enabled) {
-            PrimaryButton(if (busy) "올리는 중…" else "갤러리에 공유", {
-                onBusy(true)
-                scope.launch {
-                    c.share(spec)
-                        .onSuccess { onResult("갤러리에 올렸어요"); c.showBanner("'${spec.name}' 공유 완료", tone = BannerTone.SUCCESS, durationMs = 3000) }
-                        .onFailure { onResult("공유하지 못했어요: ${it.message}") }
-                    onBusy(false)
-                }
-            }, Modifier.fillMaxWidth().padding(bottom = 24.dp), enabled = !busy && problems.isEmpty())
-        } else {
-            PrimaryButton("서버 연결 후 공유할 수 있어요", {}, Modifier.fillMaxWidth().padding(bottom = 24.dp), enabled = false)
-        }
     }
 }
 

@@ -50,7 +50,9 @@ fun AppRoot(c: AppController, openDiagnostics: () -> Unit) {
     BackHandler(enabled = c.importTarget != null || c.backStack.size > 1) { c.back() }
     LocationPermissionRequest(c)
 
-    Box(Modifier.fillMaxSize().background(Tok.bg).safeDrawingPadding()) {
+    // 루트 Surface가 LocalContentColor를 Tok.text로 정한다(색을 지정하지 않은 Text가 검정으로 나오던 문제)
+    Surface(Modifier.fillMaxSize(), color = Tok.bg, contentColor = Tok.text) {
+    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
         if (c.mode == VehicleMode.CONNECTING) {
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(color = Tok.accent)
@@ -82,6 +84,7 @@ fun AppRoot(c: AppController, openDiagnostics: () -> Unit) {
         }
         c.importTarget?.let { ImportSheet(c, it) }
     }
+    }
 }
 
 @Composable
@@ -109,6 +112,9 @@ private fun TopBar(c: AppController) {
         if (c.backStack.size > 1) {
             TextButton(onClick = { c.back() }, modifier = Modifier.heightIn(min = Tok.touch)) {
                 Text("‹ 뒤로", style = MaterialTheme.typography.titleLarge, color = Tok.brand)
+            }
+            TextButton(onClick = { c.goHome() }, modifier = Modifier.heightIn(min = Tok.touch)) {
+                Text("홈", style = MaterialTheme.typography.titleLarge, color = Tok.brand)
             }
         }
         Text(

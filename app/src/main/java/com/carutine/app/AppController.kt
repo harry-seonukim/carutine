@@ -247,6 +247,11 @@ class AppController(context: Context) {
         backStack.add(s)
     }
 
+    fun goHome() {
+        importTarget = null
+        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    }
+
     fun back(): Boolean {
         if (importTarget != null) { importTarget = null; return true }
         if (backStack.size <= 1) return false

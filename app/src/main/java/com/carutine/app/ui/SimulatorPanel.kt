@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.carutine.app.AppController
 import com.carutine.app.Labels
@@ -57,8 +59,7 @@ fun SimulatorPanel(c: AppController, modifier: Modifier = Modifier) {
         modifier.background(Tok.sunken).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("차량 상태 시뮬레이터", style = MaterialTheme.typography.titleLarge)
-        Text("실제 차량이 아닌 가상 차량이에요. 눌러서 상황을 바꿔 보세요.", style = MaterialTheme.typography.bodySmall, color = Tok.text2)
+        Text("차량 상태 시뮬레이터 (가상 차량)", style = MaterialTheme.typography.titleLarge, color = Tok.text)
 
         SimLabel("주행 상태")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -69,7 +70,15 @@ fun SimulatorPanel(c: AppController, modifier: Modifier = Modifier) {
         SimLabel("장소 (가상 좌표, 기기에만 저장)")
         val hasPlaces = PlaceKey.HOME in c.places && PlaceKey.WORK in c.places
         if (!hasPlaces) BrandButton("집·회사 가상 위치 저장", { c.registerSimPlaces() }, Modifier.fillMaxWidth())
-        Text("현재 위치: ${c.simPosition.label}", style = MaterialTheme.typography.bodyMedium)
+        Text("현재 위치: ${c.simPosition.label}", style = MaterialTheme.typography.bodyMedium, color = Tok.text)
+
+        SimLabel("실내 온도 ${Labels.fmt(c.sim.cabinTemp)}℃ (조건 T6)")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SecondaryButton("추움 10℃", { c.simSetCabin(10.0) })
+            SecondaryButton("더움 30℃", { c.simSetCabin(30.0) })
+            SecondaryButton("−", { c.simSetCabin(c.sim.cabinTemp - 1) }, Modifier.semantics { contentDescription = "실내 온도 내리기" })
+            SecondaryButton("+", { c.simSetCabin(c.sim.cabinTemp + 1) }, Modifier.semantics { contentDescription = "실내 온도 올리기" })
+        }
 
         SimLabel("사건 넣기")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -85,16 +94,6 @@ fun SimulatorPanel(c: AppController, modifier: Modifier = Modifier) {
         }
         Text("배터리 ${c.simBattery}% · 연료 ${c.simFuel}%", style = MaterialTheme.typography.bodySmall, color = Tok.text2)
 
-        SimLabel("실내 온도 (조건 T6)")
-        Stepper(
-            "${Labels.fmt(c.sim.cabinTemp)}℃",
-            { c.simSetCabin(c.sim.cabinTemp - 1) },
-            { c.simSetCabin(c.sim.cabinTemp + 1) },
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton("추움 10℃", { c.simSetCabin(10.0) })
-            SecondaryButton("더움 30℃", { c.simSetCabin(30.0) })
-        }
 
         SimLabel("현재 차량 설정값")
         StateGrid(c.sim)

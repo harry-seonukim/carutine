@@ -4,7 +4,7 @@ name: Emulator smoke test
 on:
   workflow_dispatch:
   push:
-    branches: ['pm/smoke', 'main']
+    branches: ['pm/smoke', 'main', 'fe/**']
 permissions:
   contents: write
 jobs:
