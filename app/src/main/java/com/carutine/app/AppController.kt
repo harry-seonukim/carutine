@@ -151,6 +151,7 @@ class AppController(context: Context) {
     private var lastLocation: VehicleEvent.Location? = null
 
     private var gateway: VehicleGateway? = null
+    private var shared: SharedGateway? = null
     private var fake: FakeVehicleGateway? = null
     private lateinit var engine: RoutineEngine
     private var engineJob: Job? = null
@@ -191,9 +192,12 @@ class AppController(context: Context) {
     }
 
     private suspend fun startEngine() {
-        val gw = gateway ?: return
+        val raw = gateway ?: return
         engineJob?.cancel()
         observeJob?.cancel()
+        shared?.stop()
+        // observe()는 한 번만 수집해 엔진과 화면(주행 상태·위치)이 나눠 쓴다
+        val gw = SharedGateway(raw, scope).also { shared = it }
         engine = RoutineEngine(gw, routineStore, placeStore, undoStore, cooldownStore, runLog)
         observeJob = scope.launch {
             gw.observe().collect { e ->
@@ -209,9 +213,24 @@ class AppController(context: Context) {
         delay(50)   // 구독이 붙은 뒤에 기준값을 보낸다
     }
 
+    /**
+     * 실제 차량 모드에서 위치 권한(dangerous)을 허용받은 뒤 부른다. SDK는 연결 시점의 권한으로 capability를 정하므로
+     * close() → connect()로 다시 연결하고 엔진을 새로 만든다(location cap 반영).
+     */
+    fun reconnectAfterPermission() {
+        val gw = gateway as? com.carutine.vehicle.pleos.PleosVehicleGateway ?: return
+        scope.launch {
+            val ok = try { gw.close(); gw.connect() } catch (t: Throwable) { false }
+            startEngine()
+            if (!ok) showBanner("차량에 다시 연결하지 못했어요", tone = BannerTone.WARN)
+            else if (Cap.LOCATION in caps) showBanner("위치 권한이 반영됐어요", tone = BannerTone.SUCCESS, durationMs = 2500)
+        }
+    }
+
     fun close() {
         listener.cancel()
         speaker.shutdown()
+        shared?.stop()
         (gateway as? AutoCloseable)?.let { runCatching { it.close() } }
         scope.cancel()
     }
