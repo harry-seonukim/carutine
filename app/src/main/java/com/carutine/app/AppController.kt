@@ -403,7 +403,7 @@ class AppController(context: Context) {
 
     // ------------------------------------------------------------------ 갤러리·가져오기 (S03~S06, S10)
 
-    fun setHideIncompatible(hide: Boolean) { hideIncompatible = hide; loadGallery() }
+    fun updateHideIncompatible(hide: Boolean) { hideIncompatible = hide; loadGallery() }
 
     fun loadGallery() {
         scope.launch {

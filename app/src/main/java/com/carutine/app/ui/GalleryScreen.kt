@@ -74,7 +74,7 @@ fun GalleryScreen(c: AppController) {
                         if (c.hideIncompatible) "내 차에서 쓸 수 있는 루틴만 보여요" else "모든 루틴을 보여요",
                         style = MaterialTheme.typography.bodyMedium, color = Tok.text2, modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { c.setHideIncompatible(!c.hideIncompatible) }, modifier = Modifier.heightIn(min = Tok.touch)) {
+                    TextButton(onClick = { c.updateHideIncompatible(!c.hideIncompatible) }, modifier = Modifier.heightIn(min = Tok.touch)) {
                         Text(if (c.hideIncompatible) "모두 보기" else "쓸 수 있는 것만", color = Tok.brand, style = MaterialTheme.typography.labelLarge)
                     }
                 }
