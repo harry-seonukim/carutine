@@ -48,6 +48,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun AppRoot(c: AppController, openDiagnostics: () -> Unit) {
     BackHandler(enabled = c.importTarget != null || c.backStack.size > 1) { c.back() }
+    LocationPermissionRequest(c)
 
     Box(Modifier.fillMaxSize().background(Tok.bg).safeDrawingPadding()) {
         if (c.mode == VehicleMode.CONNECTING) {
@@ -190,6 +191,25 @@ private fun ProposalBanner(p: ProposalUi, c: AppController) {
                 SecondaryButton("아니요", onClick = { c.answerProposal(false) })
             }
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = Tok.accent, trackColor = Tok.border)
+        }
+    }
+}
+
+/** 실제 차량 모드: 위치 트리거(T1·T2)에 필요한 위치 권한을 한 번 묻고, 허용되면 차량에 다시 연결한다. */
+@Composable
+private fun LocationPermissionRequest(c: AppController) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result -> if (result.values.any { it }) c.reconnectAfterPermission() }
+    LaunchedEffect(c.mode) {
+        if (c.mode == VehicleMode.REAL) {
+            val fine = android.Manifest.permission.ACCESS_FINE_LOCATION
+            val coarse = android.Manifest.permission.ACCESS_COARSE_LOCATION
+            val granted = listOf(fine, coarse).any {
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            if (!granted) launcher.launch(arrayOf(fine, coarse))
         }
     }
 }
