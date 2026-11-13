@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
+    <!-- 차량 다크 테마: 창 배경을 앱 배경색(#0F1C2E)과 맞춰 시작 시 흰 화면이 번쩍이지 않게 한다. -->
+    <style name="Theme.Carutine" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/carutine_bg</item>
+        <item name="android:statusBarColor">@color/carutine_bg</item>
+        <item name="android:navigationBarColor">@color/carutine_bg</item>
+    </style>
+    <!-- V1 검증 화면(차량 연결 진단)은 기존 밝은 테마 그대로 -->
     <style name="Theme.CarutineSpike" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>

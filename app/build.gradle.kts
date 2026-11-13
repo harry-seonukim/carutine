@@ -4,19 +4,25 @@ plugins {
 }
 
 android {
-    namespace = "com.carutine.spike"
+    namespace = "com.carutine.app"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.carutine.spike"
+        applicationId = "com.carutine.app"
         minSdk = 28
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // 갤러리·공유 서버 주소. 비어 있으면 앱은 오프라인 모드(시드 갤러리, 공유 미리보기만)로 동작한다.
+        // CI/로컬에서 환경 변수 CARUTINE_API_BASE_URL 또는 gradle 속성 carutine.apiBaseUrl로 넣는다.
+        val apiBaseUrl = (System.getenv("CARUTINE_API_BASE_URL")
+            ?: (project.findProperty("carutine.apiBaseUrl") as String?) ?: "").trim().trimEnd('/')
+        buildConfigField("String", "API_BASE_URL", "\"" + apiBaseUrl + "\"")
     }
 
     // release 서명: CI는 GitHub Secrets에서 받은 keystore를 환경 변수로 넘긴다.
@@ -48,6 +54,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

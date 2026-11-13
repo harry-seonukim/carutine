@@ -6,7 +6,23 @@
     <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
     <uses-permission android:name="pleos.car.permission.CAR_INFO" />
 
+    <!-- 갤러리·공유 서버(BuildConfig.API_BASE_URL이 있을 때만 사용) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- '음성으로 실행'(SpeechRecognizer). 실행 시점에 권한을 묻는다. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- API 30+ 패키지 가시성: 음성 인식 서비스·TTS 엔진을 찾을 수 있어야 한다(권한 아님). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
+        android:name=".CarutineApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -14,12 +30,13 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CarutineSpike">
+        android:theme="@style/Theme.Carutine">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.CarutineSpike"
+            android:theme="@style/Theme.Carutine"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -27,6 +44,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- V1 검증 화면: 런처에서 빼고 설정 > '차량 연결 진단'에서 연다 -->
+        <activity
+            android:name="com.carutine.spike.MainActivity"
+            android:exported="false"
+            android:label="차량 연결 진단"
+            android:theme="@style/Theme.CarutineSpike" />
     </application>
 
 </manifest>
