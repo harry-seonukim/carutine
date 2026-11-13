@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   # 공모전 규칙: apk/팀명_앱이름_release.apk
@@ -46,8 +46,8 @@ jobs:
           f=$(ls app/build/outputs/apk/release/*.apk | head -1)
           cp "$f" "out/$APK_NAME"
           BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
-          $BT/apksigner verify --print-certs "out/$APK_NAME" | head -5 || true
-          $BT/aapt2 dump badging "out/$APK_NAME" | head -8 || true
+          { $BT/apksigner verify -v --print-certs "out/$APK_NAME"; $BT/aapt2 dump badging "out/$APK_NAME"; $BT/aapt2 dump permissions "out/$APK_NAME"; } > out/apk-info.txt 2>&1 || true
+          cat out/apk-info.txt | head -40
       - uses: actions/upload-artifact@v4
         with:
           name: apk
@@ -57,3 +57,23 @@ jobs:
         with:
           name: test-reports
           path: app/build/reports/
+      # 작업 공간에서 artifact를 내려받을 수 없어서, 빌드 결과를 ci-out/<브랜치> 브랜치에 남긴다(검증용).
+      - name: Push build output to ci-out branch
+        if: github.event_name != 'pull_request'
+        run: |
+          B="ci-out/${GITHUB_REF_NAME}"
+          mkdir -p /tmp/o && cp -r out/* /tmp/o/ && cp -r app/build/reports /tmp/o/reports 2>/dev/null || true
+          cd /tmp/o && echo "${GITHUB_SHA}" > SOURCE_SHA
+          git init -q -b "$B" && git config user.name carutine-ci && git config user.email ci@users.noreply.github.com
+          git add -A && git commit -qm "build output for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$B"
+      # 공모전 규칙: main의 apk/ 폴더에 실행 가능한 release APK를 둔다.
+      - name: Commit APK to apk/ on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p apk && cp "out/$APK_NAME" "apk/$APK_NAME"
+          git config user.name carutine-ci && git config user.email ci@users.noreply.github.com
+          git add "apk/$APK_NAME"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "APK 갱신: ${GITHUB_SHA::7} [skip ci]"
+          git push origin HEAD:main
