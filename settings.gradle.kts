@@ -24,5 +24,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CarutineSpike"
+rootProject.name = "Carutine"
 include(":app")
