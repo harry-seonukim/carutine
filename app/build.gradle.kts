@@ -13,8 +13,8 @@ android {
         applicationId = "com.carutine.app"
         minSdk = 28
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -42,9 +42,10 @@ android {
     buildTypes {
         release {
             signingConfig = if (releaseKeystore != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            // R8 최적화 끔: 일부 패키지만 최적화(packageScope)하면 앱 클래스가 최적화된 kotlin 클래스를 상속할 때
+            // IllegalAccessError로 시작 즉시 죽는다(에뮬레이터 스모크 테스트에서 확인). Pleos SDK 권한 메타데이터 보호도 겸한다.
             optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                enable = false
             }
         }
     }
