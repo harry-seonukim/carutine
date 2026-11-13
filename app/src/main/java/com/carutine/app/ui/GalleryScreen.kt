@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -59,6 +60,7 @@ private fun GalleryItem.compat(caps: Set<com.carutine.model.Cap>): CompatLevel? 
     spec?.let { CompatChecker.check(it, caps).level } ?: serverCompat
 
 /** 갤러리 홈(S03): 선반 + 호환 배지. 서버가 없거나 실패하면 assets 시드로 대체한다. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun GalleryScreen(c: AppController) {
     LaunchedEffect(Unit) { if (c.shelves.isEmpty()) c.loadGallery() }
@@ -88,12 +90,19 @@ fun GalleryScreen(c: AppController) {
                 if (shelf.items.isEmpty()) {
                     Note("이 선반에 보여 줄 루틴이 없어요", Modifier.padding(horizontal = 16.dp))
                 } else {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        items(shelf.items, key = { "${shelf.id}-${it.id ?: it.name}" }) { item ->
-                            GalleryCard(item, item.compat(c.caps)) { c.navigate(Screen.Detail(item)) }
+                    // 좁은 앱 영역(Pleos 가로 약 1670px)에서도 잘리지 않게 가로 스크롤 대신 폭에 맞춘 격자로 놓는다
+                    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        val gap = 14.dp
+                        val cols = ((maxWidth + gap) / (280.dp + gap)).toInt().coerceIn(1, 4)
+                        val cardW = (maxWidth - gap * (cols - 1)) / cols
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(gap),
+                            verticalArrangement = Arrangement.spacedBy(gap),
+                            maxItemsInEachRow = cols,
+                        ) {
+                            shelf.items.forEach { item ->
+                                GalleryCard(item, item.compat(c.caps), Modifier.width(cardW)) { c.navigate(Screen.Detail(item)) }
+                            }
                         }
                     }
                 }
@@ -103,13 +112,13 @@ fun GalleryScreen(c: AppController) {
 }
 
 @Composable
-private fun GalleryCard(item: GalleryItem, compat: CompatLevel?, onClick: () -> Unit) {
+private fun GalleryCard(item: GalleryItem, compat: CompatLevel?, modifier: Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         color = Tok.surface,
         contentColor = Tok.text,
         shape = RoundedCornerShape(Tok.radius),
-        modifier = Modifier.width(300.dp).heightIn(min = 200.dp),
+        modifier = modifier.heightIn(min = 200.dp),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

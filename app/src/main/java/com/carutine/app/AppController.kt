@@ -296,7 +296,7 @@ class AppController(context: Context) {
             NoticeKind.R2 -> BannerTone.WARN
             else -> BannerTone.SUCCESS
         }
-        val duration = when (r.notice.kind) { NoticeKind.R2 -> 6000L; else -> 4000L }
+        val duration = 6000L   // 차량 시선 체류를 고려해 6초(PM 결정)
         showBanner(r.notice.text, sub, tone, showUndo = r.undoable, durationMs = duration)
         if (r.shouldSpeak) speaker.speak(r.notice.text)
         simLog(r.notice.text)
@@ -418,7 +418,8 @@ class AppController(context: Context) {
             if (api.enabled) {
                 try {
                     val list = api.shelves(c, SeedGallery.season(now.monthValue), now.hour)
-                    shelves = list
+                    // '지금 이 시간'이 비면 선반 자체를 숨긴다
+                    shelves = list.filterNot { it.id == "now" && it.items.isEmpty() }
                     galleryOnline = true
                     galleryNote = null
                     galleryLoading = false
@@ -432,7 +433,7 @@ class AppController(context: Context) {
                 galleryNote = "서버 미연결: 오프라인 모드에서는 공식 루틴만 보여요"
             }
             galleryOnline = false
-            shelves = SeedGallery.shelves(seeds, c, now.monthValue, now.hour, hideIncompatible)
+            shelves = SeedGallery.shelves(seeds, c, java.time.ZonedDateTime.now(), hideIncompatible)
             galleryLoading = false
         }
     }
