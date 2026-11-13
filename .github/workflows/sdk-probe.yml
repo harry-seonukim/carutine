@@ -1,0 +1,38 @@
+name: SDK probe
+on:
+  workflow_dispatch:
+  push:
+    branches: ['pm/sdk-probe']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Pleos SDK artifacts and dump API
+        run: |
+          set -x
+          R=https://nexus-playground.pleos.ai/repository/maven-releases
+          mkdir -p dump && cd dump
+          curl -sS "$R/ai/pleos/playground/" -o listing.html || true
+          for a in Vehicle NaviHelper TTS STT FusedLocation Tts Stt; do
+            curl -sS -f "$R/ai/pleos/playground/$a/maven-metadata.xml" -o "meta_$a.xml" || echo "no $a"
+          done
+          cat meta_*.xml || true
+          curl -sSf "$R/ai/pleos/playground/Vehicle/2.3.2/Vehicle-2.3.2.aar" -o Vehicle.aar
+          curl -sSf "$R/ai/pleos/playground/Vehicle/2.3.2/Vehicle-2.3.2-sources.jar" -o Vehicle-sources.jar || echo "no sources"
+          curl -sSf "$R/ai/pleos/playground/Vehicle/2.3.2/Vehicle-2.3.2.pom" -o Vehicle.pom || true
+          mkdir aar && cd aar && unzip -q ../Vehicle.aar && cd ..
+          cp aar/AndroidManifest.xml Vehicle-AndroidManifest.xml
+          mkdir src && (cd src && unzip -q ../Vehicle-sources.jar || true)
+          javap -public -cp aar/classes.jar $(unzip -Z1 aar/classes.jar | grep '\.class$' | grep -v '\$' | sed 's/\.class$//; s#/#.#g') > javap.txt 2>&1 || true
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-dump
+          path: |
+            dump/*.txt
+            dump/*.xml
+            dump/*.html
+            dump/*.pom
+            dump/src/
