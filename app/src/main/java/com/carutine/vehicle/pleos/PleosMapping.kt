@@ -124,11 +124,38 @@ object PleosMapping {
         else -> DriveState.UNKNOWN
     }
 
-    /** 와이퍼 상태(`WiperState.name`) → 작동 여부. ON=true, OFF·SERVICE=false, OTHER·null=판단 안 함(null). */
+    /**
+     * 와이퍼 상태(`WiperState.name`) → 작동 여부. SDK 2.3.2 WiperState는 OTHER·OFF·ON·SERVICE 넷뿐이고
+     * (간헐·저속·고속·AUTO는 WiperSwitch 쪽 값), AAOS 규약상 ON = 속도와 무관하게 와이퍼가 움직이는 중.
+     * ON=true, OFF·SERVICE(정비 위치)=false, OTHER·null=판단 안 함(null → [wiperSwitchOn]으로 보조 판단).
+     */
     fun wiperOn(stateName: String?): Boolean? = when (stateName) {
         "ON" -> true
         "OFF", "SERVICE" -> false
         else -> null
+    }
+
+    /** 와이퍼 스위치(`WiperSwitch.name`) → 작동 여부. OFF=false, OTHER·null=모름, 나머지(MIST·INTERMITTENT·CONTINUOUS·AUTO 등)=true. */
+    fun wiperSwitchOn(switchName: String?): Boolean? = when (switchName) {
+        null, "OTHER" -> null
+        "OFF" -> false
+        else -> true
+    }
+
+    // ---------------------------------------------------------------- 반영 확인(read-back)
+
+    /** 읽은 설정 온도가 목표와 같은지. 허용 오차 = 증분의 절반(증분 없으면 0.1℃). */
+    fun tempMatches(read: Double?, target: Double, step: Double): Boolean {
+        if (read == null) return false
+        val tol = if (step > 0.0) step / 2 else 0.1
+        return kotlin.math.abs(read - target) <= tol + 1e-6
+    }
+
+    /** 읽은 앰비언트 색이 목표와 같은지. RGB가 같거나, 차량이 팔레트로 반올림했어도 가장 가까운 루틴 색이 같으면 통과. */
+    fun ambientColorMatches(readArgb: Int?, target: AmbientColor): Boolean {
+        if (readArgb == null) return false
+        if ((readArgb and 0xFFFFFF) == (ambientArgb(target) and 0xFFFFFF)) return true
+        return nearestAmbientColor(readArgb) == target
     }
 
     /** 영역 목록에서 조건에 맞는 첫 영역, 없으면 첫 영역(운전석·앞유리 우선 선택용). */

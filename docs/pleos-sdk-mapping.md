@@ -69,3 +69,21 @@
 | 7 | 에뮬레이터에 위치 provider(GPS)가 있는지, 모의 위치 주입 방법 | `adb emu geo fix` 또는 Virtual Console |
 | 8 | release(R8) 빌드에서 SDK의 권한 검사(`PermissionUtil`, kotlin-reflect로 Impl 애노테이션 조회)가 정상 동작하는지 | release APK로 check 호출. `Permission metadata not found` 오류가 나면 keep 규칙 필요 |
 | 9 | Vehicle 서비스 최소 버전(SDK 매니페스트 `min_version_name=2.3.13`)과 에뮬레이터 서비스 버전 | 연결 실패 시 확인 |
+
+## 5. 반영 확인·HVAC 전원·진단 로그 (fe/vehicle-apply-verify)
+
+에뮬레이터에서 "앱은 성공으로 표시되는데 차량 값이 안 바뀜", "와이퍼를 켜도 자동 실행 안 됨"이 보고되어 추가했다.
+
+- **반영 확인(read-back)**: SDK set의 onComplete는 `setPropertyAsync`의 `ISetPropertyResult.onResult`일 뿐이라(`HVACImpl.setHvacFanSpeed` 등) 값 반영을 보장하지 않는다.
+  set 뒤 300ms 간격으로 최대 5번(1.5초) 다시 읽어 목표값이면 `Success`, 끝내 다르면 `Failed("차량에 반영되지 않음(현재값 X)")`.
+  읽기 접근이 없는(access WRITE 전용) 항목만 확인을 생략한다. 온도는 증분의 절반까지 오차 허용, 앰비언트 색은 가장 가까운 루틴 색이 같으면 통과.
+- **HVAC 전원**: hvac_temp/fan/air 전에 `checkHvacPowerCapabilities` 영역마다 `getHvacPowerState`를 읽고, false면 `setHvacPower(true)` 후 켜졌는지 확인한다.
+  권한은 기존 `CAR_CLIMATE`/`CONTROL_CAR_CLIMATE`. 열선(시트·스티어링·미러)과 앰비언트가 HVAC 전원·시동에 의존하는지는 SDK 소스에 언급이 없다(확인 필요, 진단 로그로 판단).
+- **시동 상태**: `IgnitionState`는 `@hide` 열거형만 있고 조회 API가 없어 기록하지 않는다.
+- **영역**: 모든 get/set은 check가 돌려준 area 객체를 그대로 쓴다. SDK는 area를 좌석 비트 OR(`ImplementUtil.getAreaId`)로 보내므로 임의로 만든 area는 다른 영역이 된다.
+  각 check의 영역·범위는 진단 로그(`hvac.temp access=… areas=[ROW_1_LEFT|…:17.0..27.0]`)에 남는다. 영역이 비면(GLOBAL 등) SDK가 `areaId is Invalid`로 실패시키므로 조용히 무시되지는 않는다.
+- **와이퍼**: `registerWiperState(WindowArea, WiperStateListener)`, 값은 `WiperState`(OTHER·OFF·ON·SERVICE). ON만 켜짐, OTHER면 `getCurrentWiperSwitch`로 보조 판단(OFF 외 켜짐).
+  등록 직후 현재값을 읽어 기준선(보통 OFF)을 먼저 보내고, 리스너 콜백이 안 오는 경우를 대비해 1초마다 현재값을 읽는다. 값이 바뀔 때만 방출(`WiperSignal`, 테스트 `WiperSignalTest`).
+- **기준선 유실 수정**: 앱의 `SharedGateway`가 `shareIn(Eagerly, replay = 0)`이라 엔진이 구독하기 전에 나간 첫 값(와이퍼 OFF 기준선)이 사라질 수 있었다.
+  그러면 엔진 TriggerDetector가 첫 ON을 기준선으로만 쓰고 무시한다. `replay = 16`으로 바꾸고 `SharedGatewayTest`로 고정했다.
+- **진단 로그**: `PleosDiagnostics.lines()`(최근 200줄, 메모리). 모든 SDK 호출의 이름·area·값·onComplete/onFailed/timeout·소요 ms, check 결과, HVAC 전원, 반영 확인, 리스너 등록, 와이퍼 원시값→매핑→방출. 좌표는 남기지 않는다. 설정 화면 "최근 차량 호출 로그"에서 본다.
