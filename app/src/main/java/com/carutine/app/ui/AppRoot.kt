@@ -58,6 +58,7 @@ fun AppRoot(c: AppController, openDiagnostics: () -> Unit) {
             }
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
             val wide = maxWidth >= 900.dp
+            val drawerMax = maxHeight * 0.55f
             val showSim = c.mode == VehicleMode.SIMULATOR
             if (wide && showSim) {
                 Row(Modifier.fillMaxSize()) {
@@ -69,7 +70,7 @@ fun AppRoot(c: AppController, openDiagnostics: () -> Unit) {
                     Column(Modifier.weight(1f).fillMaxWidth()) { MainArea(c, openDiagnostics) }
                     if (showSim) {
                         var open by rememberSaveable { mutableStateOf(false) }
-                        SimulatorDrawer(c, open, onToggle = { open = !open }, maxHeight = maxHeight * 0.55f)
+                        SimulatorDrawer(c, open, onToggle = { open = !open }, maxHeight = drawerMax)
                     }
                 }
             }
