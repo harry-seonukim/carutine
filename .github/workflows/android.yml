@@ -3,9 +3,7 @@ name: Android APK
 on:
   push:
     branches: [main, 'fe/**', 'pm/**']
-    paths: ['app/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', '.github/workflows/android.yml']
   pull_request:
-    paths: ['app/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', '.github/workflows/android.yml']
   workflow_dispatch:
 
 permissions:
@@ -13,7 +11,7 @@ permissions:
 
 env:
   # 공모전 규칙: apk/팀명_앱이름_release.apk
-  APK_NAME: ${{ vars.APK_NAME || 'Carutine_release.apk' }}
+  APK_NAME: ${{ vars.APK_NAME || 'Carutine_Carutine_release.apk' }}
 
 jobs:
   build:
