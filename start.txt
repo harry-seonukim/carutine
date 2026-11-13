@@ -1,0 +1,7 @@
+Starting: Intent { cmp=com.carutine.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.carutine.app/.MainActivity
+TotalTime: 4905
+WaitTime: 4929
+Complete
