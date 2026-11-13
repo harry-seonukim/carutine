@@ -296,7 +296,7 @@ class AppController(context: Context) {
             NoticeKind.R2 -> BannerTone.WARN
             else -> BannerTone.SUCCESS
         }
-        val duration = when (r.notice.kind) { NoticeKind.R2 -> 6000L; else -> 4000L }
+        val duration = 6000L   // 차량 시선 체류를 고려해 6초(PM 결정)
         showBanner(r.notice.text, sub, tone, showUndo = r.undoable, durationMs = duration)
         if (r.shouldSpeak) speaker.speak(r.notice.text)
         simLog(r.notice.text)

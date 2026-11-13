@@ -21,7 +21,7 @@ for n in root.iter('node'):
             x1,y1,x2,y2=map(int,m); print((x1+x2)//2,(y1+y2)//2); break
 PY
 )
-  if [ -n "$b" ]; then adb shell input tap $b; echo "tap '$1' at $b"; sleep 2; return 0; else echo "NOT FOUND: '$1'" | tee -a $O/missing.txt; return 1; fi
+  if [ -n "$b" ]; then adb shell input tap $b; echo "tap '$1' at $b"; sleep "${2:-2}"; return 0; else echo "NOT FOUND: '$1'" | tee -a $O/missing.txt; return 1; fi
 }
 adb logcat -c
 adb install -r app.apk 2>&1 | tee $O/install.txt
@@ -36,9 +36,9 @@ tap_text "가져오기" && shot "import_sheet"
 tap_text "가상 위치" && shot "place"
 tap_text "가져오기" ; tap_text "완료" ; tap_text "저장"; shot "after_import"
 tap_text "홈" || tap_text "내 루틴"; shot "home"
-tap_text "실행" && sleep 2 && shot "run_result"
+tap_text "실행" 1 && shot "run_result"   # 실행 결과 배너(6초)가 찍히게 1초만 기다림
 tap_text "원래대로" && shot "undo"
-tap_text "추움" ; tap_text "회사 출발" && sleep 3 && shot "auto_run"
+tap_text "추움" ; tap_text "회사 출발" 1 && shot "auto_run"
 tap_text "직접 만들기" && shot "editor"
 adb shell input keyevent KEYCODE_BACK; sleep 1
 tap_text "설정" && shot "settings"

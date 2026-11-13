@@ -60,24 +60,25 @@ object SeedGallery {
 
     /**
      * '지금 이 시간'에 맞는지. 점수 0이면 맞지 않음(선반에서 뺀다).
+     * - 반대 계절 태그면 0점
      * - time_window 조건이 있으면: 지금 시각이 그 안이면 2점, 아니면 0점(다른 규칙과 상관없이 제외)
      * - 시간 조건이 없으면: 카테고리가 시간대에 맞으면(출퇴근 6~10시·17~21시, 야간 19~5시) 1점,
      *   계절 태그('겨울'/'여름')가 지금 계절과 맞으면 1점
      */
     fun nowScore(i: GalleryItem, now: ZonedDateTime): Int {
         val spec = i.spec ?: return 0
+        val season = season(now.monthValue)
+        // 반대 계절 루틴은 시간대가 맞아도 뺀다(가을·겨울엔 '여름', 봄·여름엔 '겨울' 태그)
+        if ((season == "winter" || season == "autumn") && "여름" in i.tags) return 0
+        if ((season == "summer" || season == "spring") && "겨울" in i.tags) return 0
         val window = spec.conditions.filterIsInstance<Condition.TimeWindow>().firstOrNull()
         if (window != null) return if (ConditionEvaluator.inWindow(window, now)) 2 else 0
         val hour = now.hour
-        val season = season(now.monthValue)
         var s = 0
         if ((hour in 6..9 || hour in 17..20) && i.category == Category.COMMUTE) s++
         if ((hour >= 19 || hour < 5) && i.category == Category.NIGHT) s++
         if (season == "winter" && "겨울" in i.tags) s++
         if (season == "summer" && "여름" in i.tags) s++
-        // 반대 계절 태그가 붙은 루틴은 시간대가 맞아도 빼서 '지금'에 어울리지 않는 추천을 막는다
-        if (season == "winter" && "여름" in i.tags) return 0
-        if (season == "summer" && "겨울" in i.tags) return 0
         return s
     }
 

@@ -67,7 +67,8 @@ fun SimulatorPanel(c: AppController, modifier: Modifier = Modifier) {
             Choice("주행 중", c.driveState.restrictsUi, { c.simSetDriving(true) })
         }
 
-        SimLabel("장소 (가상 좌표, 기기에만 저장)")
+        // 라벨에 '저장'을 넣지 않는다: 스모크가 '저장' 텍스트로 아래 버튼을 찾는다
+        SimLabel("장소 (가상 좌표, 이 기기 안에서만)")
         val hasPlaces = PlaceKey.HOME in c.places && PlaceKey.WORK in c.places
         if (!hasPlaces) BrandButton("집·회사 가상 위치 저장", { c.registerSimPlaces() }, Modifier.fillMaxWidth())
         Text("현재 위치: ${c.simPosition.label}", style = MaterialTheme.typography.bodyMedium, color = Tok.text)
