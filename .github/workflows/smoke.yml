@@ -1,0 +1,54 @@
+name: Emulator smoke test
+# 일반 안드로이드 에뮬레이터(Pleos 서비스 없음 → 시뮬레이터 모드)에 release APK를 설치하고
+# 실행·주요 화면 이동·크래시 여부를 확인한다. 스크린샷과 logcat은 ci-out/smoke-<브랜치>에 남긴다.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['pm/smoke', 'main']
+permissions:
+  contents: write
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+            25
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build release APK
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          CARUTINE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          CARUTINE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          CARUTINE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"; export CARUTINE_KEYSTORE="$RUNNER_TEMP/release.jks"; fi
+          ./gradlew --no-configuration-cache :app:assembleRelease
+          cp app/build/outputs/apk/release/*.apk app.apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Run on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_tablet
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash .github/smoke/run.sh
+      - name: Push results
+        if: always()
+        run: |
+          B="ci-out/smoke-${GITHUB_REF_NAME}"
+          mkdir -p smoke-out && cd smoke-out && echo "${GITHUB_SHA}" > SOURCE_SHA
+          git init -q -b "$B" && git config user.name carutine-ci && git config user.email ci@users.noreply.github.com
+          git add -A && git commit -qm "smoke ${GITHUB_SHA}" && git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$B"
