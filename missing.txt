@@ -1,0 +1,5 @@
+NOT FOUND: '허용'
+NOT FOUND: 'Allow'
+NOT FOUND: '완료'
+NOT FOUND: '홈'
+NOT FOUND: '내 루틴'
