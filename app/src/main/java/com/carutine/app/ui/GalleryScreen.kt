@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -140,26 +141,39 @@ fun DetailScreen(c: AppController, item: GalleryItem) {
         }
     }
     val s = spec
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(item.name, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            if (item.isOfficial) Tag("공식")
-            if (item.isMine) Tag("내 루틴", Tok.commTint, Tok.comm)
+    Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(item.name, style = MaterialTheme.typography.headlineMedium, color = Tok.text, modifier = Modifier.weight(1f))
+                if (item.isOfficial) Tag("공식")
+                if (item.isMine) Tag("내 루틴", Tok.commTint, Tok.comm)
+            }
+            if (item.description.isNotBlank()) Text(item.description, style = MaterialTheme.typography.bodyLarge, color = Tok.text2)
+            when {
+                error != null -> Note(error ?: "", warn = true)
+                s == null -> CircularProgressIndicator(color = Tok.accent)
+                else -> SpecDetail(c, s)
+            }
         }
-        if (item.description.isNotBlank()) Text(item.description, style = MaterialTheme.typography.bodyLarge, color = Tok.text2)
-        when {
-            error != null -> Note(error ?: "", warn = true)
-            s == null -> CircularProgressIndicator(color = Tok.accent)
-            else -> SpecDetail(c, s, remoteId = item.id)
+        // 주 버튼은 하단 고정(스크롤 없이 항상 보임)
+        if (s != null) {
+            val level = remember(s, c.caps) { CompatChecker.check(s, c.caps).level }
+            BottomBar {
+                if (level == CompatLevel.NONE) {
+                    PrimaryButton("이 차에서는 쓸 수 없어요", {}, Modifier.weight(1f), enabled = false)
+                } else {
+                    PrimaryButton("내 루틴으로 가져오기", { c.startImport(s, item.id) }, Modifier.weight(1f))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SpecDetail(c: AppController, s: RoutineSpec, remoteId: String?) {
+private fun SpecDetail(c: AppController, s: RoutineSpec) {
     val compat = remember(s, c.caps) { CompatChecker.check(s, c.caps) }
     CompatBadge(compat.level, large = true)
     Text(
@@ -173,6 +187,7 @@ private fun SpecDetail(c: AppController, s: RoutineSpec, remoteId: String?) {
             else "이 차에서 실행할 수 있는 동작이 없어요"
         },
         style = MaterialTheme.typography.bodyLarge,
+        color = Tok.text,
     )
     SectionTitle("이럴 때")
     val t = s.trigger
@@ -188,11 +203,6 @@ private fun SpecDetail(c: AppController, s: RoutineSpec, remoteId: String?) {
             ActionSupport.VIA_FALLBACK -> DetailRow(Labels.action(a.action), "이 차에 없어서 대신 ${Labels.action(a.fallback!!)}", ok = true, alt = true)
             ActionSupport.UNSUPPORTED -> DetailRow(Labels.action(a.action), "이 차에서는 빠져요", ok = false)
         }
-    }
-    if (compat.level == CompatLevel.NONE) {
-        PrimaryButton("이 차에서는 쓸 수 없어요", {}, Modifier.fillMaxWidth(), enabled = false)
-    } else {
-        PrimaryButton("내 루틴으로 가져오기", { c.startImport(s, remoteId) }, Modifier.fillMaxWidth())
     }
 }
 
@@ -213,21 +223,27 @@ fun ImportSheet(c: AppController, target: ImportTarget) {
     val sections = remember(target) { ImportPlanner.sections(target.spec) }
     val assigned = remember(target) { mutableStateMapOf<PlaceKey, Place>() }
     var autoRun by remember(target) { mutableStateOf(true) }
+    // 별도 창(Dialog)으로 띄워 뒤 화면의 버튼이 눌리거나 접근성 트리에 섞이지 않게 한다
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { c.importTarget = null },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
     Box(
-        Modifier.fillMaxSize().background(Color(0x8C000000)).clickable(onClick = { c.importTarget = null }),
+        Modifier.fillMaxSize().clickable(onClick = { c.importTarget = null }),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Surface(
             color = Tok.surface,
             contentColor = Tok.text,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            modifier = Modifier.fillMaxWidth().clickable(enabled = false, onClick = {}),
+            modifier = Modifier.fillMaxWidth().widthIn(max = 1100.dp).clickable(enabled = false, onClick = {}),
         ) {
+          Column {
             Column(
-                Modifier.verticalScroll(rememberScrollState()).padding(24.dp),
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Text("'${target.spec.name}' 가져오기", style = MaterialTheme.typography.headlineSmall)
+                Text("'${target.spec.name}' 내 루틴에 추가", style = MaterialTheme.typography.headlineSmall, color = Tok.text)
                 if (sections.placeKeys.isNotEmpty()) {
                     SectionTitle("장소 지정")
                     Note("장소 좌표는 이 차에만 저장되고 서버로 보내지 않아요.")
@@ -276,17 +292,19 @@ fun ImportSheet(c: AppController, target: ImportTarget) {
                         )
                     }
                 }
-                val missing = sections.placeKeys.filter { it !in c.places && it !in assigned }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SecondaryButton("취소", { c.importTarget = null })
-                    PrimaryButton(
-                        if (missing.isEmpty()) "가져오기" else "장소를 지정해 주세요",
-                        { c.confirmImport(target, assigned.toMap(), autoRun) },
-                        Modifier.weight(1f),
-                        enabled = missing.isEmpty(),
-                    )
-                }
             }
+            val missing = sections.placeKeys.filter { it !in c.places && it !in assigned }
+            Row(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SecondaryButton("취소", { c.importTarget = null })
+                PrimaryButton(
+                    if (missing.isEmpty()) "가져오기" else "장소를 지정해 주세요",
+                    { c.confirmImport(target, assigned.toMap(), autoRun) },
+                    Modifier.weight(1f),
+                    enabled = missing.isEmpty(),
+                )
+            }
+          }
         }
+    }
     }
 }

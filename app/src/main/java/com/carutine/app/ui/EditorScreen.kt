@@ -163,8 +163,9 @@ fun EditorScreen(c: AppController, localId: String?) {
     var confirmDelete by remember { mutableStateOf(false) }
     val caps = c.caps
 
+    Column(Modifier.fillMaxSize()) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // ---- 이름
@@ -287,7 +288,11 @@ fun EditorScreen(c: AppController, localId: String?) {
 
         // ---- 저장
         errors.forEach { Text(it, color = Tok.danger, style = MaterialTheme.typography.bodyMedium) }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)) {
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 16.dp))
+    }
+        // 저장은 하단 고정(스크롤 없이 항상 보임)
+        BottomBar {
+            if (errors.isNotEmpty()) Text("${errors.size}개 항목을 고쳐 주세요", color = Tok.danger, style = MaterialTheme.typography.bodyMedium)
             if (existing != null) SecondaryButton("삭제", { confirmDelete = true })
             PrimaryButton("저장", {
                 val spec = d.toSpec(existing?.spec)

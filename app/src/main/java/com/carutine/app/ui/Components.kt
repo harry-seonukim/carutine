@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -105,9 +108,25 @@ fun Choice(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
 @Composable
 fun Stepper(value: String, onMinus: () -> Unit, onPlus: () -> Unit, minusEnabled: Boolean = true, plusEnabled: Boolean = true) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        SecondaryButton("−", onMinus, Modifier.widthIn(min = Tok.touch), enabled = minusEnabled)
+        SecondaryButton("−", onMinus, Modifier.widthIn(min = Tok.touch).semantics { contentDescription = "줄이기" }, enabled = minusEnabled)
         Text(value, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.widthIn(min = 96.dp), textAlign = TextAlign.Center)
-        SecondaryButton("+", onPlus, Modifier.widthIn(min = Tok.touch), enabled = plusEnabled)
+        SecondaryButton("+", onPlus, Modifier.widthIn(min = Tok.touch).semantics { contentDescription = "늘리기" }, enabled = plusEnabled)
+    }
+}
+
+/** 화면 하단 고정 바: 주 버튼(가져오기/저장/공유)이 스크롤과 무관하게 항상 보이게 한다. */
+@Composable
+fun BottomBar(content: @Composable RowScope.() -> Unit) {
+    Surface(color = Tok.bg, contentColor = Tok.text) {
+        androidx.compose.foundation.layout.Column {
+            androidx.compose.material3.HorizontalDivider(color = Tok.border, thickness = 1.dp)
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content,
+            )
+        }
     }
 }
 

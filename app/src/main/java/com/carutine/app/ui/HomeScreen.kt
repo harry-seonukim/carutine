@@ -34,6 +34,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.carutine.app.AppController
 import com.carutine.app.BannerTone
 import com.carutine.app.Labels
@@ -142,8 +144,8 @@ private fun RoutineCard(c: AppController, r: StoredRoutine) {
             if (c.routines.size > 1) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("우선순위 ${index + 1}", style = MaterialTheme.typography.labelMedium, color = Tok.text2, modifier = Modifier.weight(1f))
-                    SecondaryButton("▲", { c.move(r.localId, -1) }, enabled = index > 0)
-                    SecondaryButton("▼", { c.move(r.localId, 1) }, enabled = index < c.routines.lastIndex)
+                    SecondaryButton("▲", { c.move(r.localId, -1) }, Modifier.semantics { contentDescription = "우선순위 올리기" }, enabled = index > 0)
+                    SecondaryButton("▼", { c.move(r.localId, 1) }, Modifier.semantics { contentDescription = "우선순위 내리기" }, enabled = index < c.routines.lastIndex)
                 }
             }
         }
@@ -181,7 +183,8 @@ fun VoiceButton(c: AppController) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) start() else c.showBanner("마이크 권한이 없어 음성 실행을 쓸 수 없어요", tone = BannerTone.WARN)
     }
-    BrandButton(if (c.voiceStatus != null) "듣는 중…" else "음성으로 실행", {
+    // 라벨에 '실행'을 넣지 않는다: 스모크 테스트가 '실행' 텍스트로 루틴 실행 버튼을 찾는다
+    BrandButton(if (c.voiceStatus != null) "듣는 중…" else "음성 명령", {
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) start()
         else launcher.launch(Manifest.permission.RECORD_AUDIO)
     })
