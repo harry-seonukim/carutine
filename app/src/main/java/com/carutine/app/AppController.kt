@@ -418,7 +418,8 @@ class AppController(context: Context) {
             if (api.enabled) {
                 try {
                     val list = api.shelves(c, SeedGallery.season(now.monthValue), now.hour)
-                    shelves = list
+                    // '지금 이 시간'이 비면 선반 자체를 숨긴다
+                    shelves = list.filterNot { it.id == "now" && it.items.isEmpty() }
                     galleryOnline = true
                     galleryNote = null
                     galleryLoading = false
@@ -432,7 +433,7 @@ class AppController(context: Context) {
                 galleryNote = "서버 미연결: 오프라인 모드에서는 공식 루틴만 보여요"
             }
             galleryOnline = false
-            shelves = SeedGallery.shelves(seeds, c, now.monthValue, now.hour, hideIncompatible)
+            shelves = SeedGallery.shelves(seeds, c, java.time.ZonedDateTime.now(), hideIncompatible)
             galleryLoading = false
         }
     }
