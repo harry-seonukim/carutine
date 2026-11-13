@@ -71,7 +71,9 @@ internal suspend fun createPleosGateway(context: Context): VehicleGateway? {
  */
 class SharedGateway(val inner: VehicleGateway, parent: CoroutineScope) : VehicleGateway {
     private val scope = CoroutineScope(parent.coroutineContext + Job(parent.coroutineContext[Job]))
-    private val shared: SharedFlow<VehicleEvent> = inner.observe().shareIn(scope, SharingStarted.Eagerly, replay = 0)
+    // Eagerly라 구독자(엔진·화면)가 붙기 전에 첫 값(와이퍼 OFF 기준선, 기어, 배터리)이 나갈 수 있다.
+    // replay=0이면 그 기준선이 사라져 엔진이 첫 'ON'을 기준선으로 삼고 무시한다 → 최근 값을 순서대로 다시 준다.
+    private val shared: SharedFlow<VehicleEvent> = inner.observe().shareIn(scope, SharingStarted.Eagerly, replay = REPLAY)
 
     override suspend fun capabilities(): Set<Cap> = inner.capabilities()
     override fun observe(): Flow<VehicleEvent> = shared
@@ -80,4 +82,9 @@ class SharedGateway(val inner: VehicleGateway, parent: CoroutineScope) : Vehicle
     override suspend fun apply(action: Action): ActionResult = inner.apply(action)
 
     fun stop() = scope.cancel()
+
+    companion object {
+        /** 구독 전 이벤트를 다시 줄 개수. 연결 직후 나오는 초기값(와이퍼·기어·배터리·연료·위치)보다 넉넉하게. */
+        const val REPLAY = 16
+    }
 }

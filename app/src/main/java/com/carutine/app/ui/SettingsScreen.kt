@@ -10,6 +10,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.carutine.app.AppController
@@ -19,6 +23,7 @@ import com.carutine.app.VehicleMode
 import com.carutine.app.ui.theme.Tok
 import com.carutine.model.Cap
 import com.carutine.model.PlaceKey
+import com.carutine.vehicle.pleos.PleosDiagnostics
 
 @Composable
 fun SettingsScreen(c: AppController, openDiagnostics: () -> Unit) {
@@ -42,6 +47,17 @@ fun SettingsScreen(c: AppController, openDiagnostics: () -> Unit) {
             }
         }
         SecondaryButton("차량 연결 진단 (V1 검증 화면)", openDiagnostics, Modifier.fillMaxWidth())
+
+        // 최근 차량 호출 로그(PleosDiagnostics, 메모리에만). 실제 차량 모드에서 set·반영 확인·와이퍼 신호를 확인한다.
+        SectionTitle("최근 차량 호출 로그")
+        var diagLines by remember { mutableStateOf(PleosDiagnostics.lines()) }
+        SecondaryButton("로그 새로고침 (${diagLines.size}줄)", { diagLines = PleosDiagnostics.lines() }, Modifier.fillMaxWidth())
+        CarCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (diagLines.isEmpty()) Text("기록 없음 (시뮬레이터 모드이거나 아직 차량 호출이 없어요)", style = MaterialTheme.typography.bodySmall, color = Tok.text2)
+                diagLines.asReversed().take(DIAG_SHOWN).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Tok.text2) }
+            }
+        }
 
         SectionTitle("내 차가 지원하는 기능")
         CarCard(Modifier.fillMaxWidth()) {
@@ -72,3 +88,6 @@ fun SettingsScreen(c: AppController, openDiagnostics: () -> Unit) {
         Text("버전 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = Tok.text2, modifier = Modifier.padding(bottom = 24.dp))
     }
 }
+
+/** 설정 화면에 보여 줄 최근 로그 줄 수(최신이 위). 전체는 PleosDiagnostics.CAPACITY줄. */
+private const val DIAG_SHOWN = 80

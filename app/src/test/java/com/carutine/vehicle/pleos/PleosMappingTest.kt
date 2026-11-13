@@ -100,6 +100,42 @@ class PleosMappingTest {
     }
 
     @Test
+    fun 와이퍼_스위치_매핑() {
+        assertEquals(false, PleosMapping.wiperSwitchOn("OFF"))
+        assertEquals(true, PleosMapping.wiperSwitchOn("MIST"))
+        assertEquals(true, PleosMapping.wiperSwitchOn("INTERMITTENT_LEVEL_1"))
+        assertEquals(true, PleosMapping.wiperSwitchOn("CONTINUOUS_LEVEL_3"))
+        assertEquals(true, PleosMapping.wiperSwitchOn("AUTO"))
+        assertNull(PleosMapping.wiperSwitchOn("OTHER"))
+        assertNull(PleosMapping.wiperSwitchOn(null))
+    }
+
+    @Test
+    fun 반영_확인_비교() {
+        assertTrue(PleosMapping.tempMatches(22.5, 22.5, 0.5))
+        assertTrue(PleosMapping.tempMatches(22.25, 22.5, 0.5))
+        assertEquals(false, PleosMapping.tempMatches(22.0, 22.5, 0.5))
+        assertEquals(false, PleosMapping.tempMatches(null, 22.5, 0.5))
+        assertTrue(PleosMapping.tempMatches(22.05, 22.0, 0.0))
+        assertTrue(PleosMapping.ambientColorMatches(PleosMapping.ambientArgb(AmbientColor.BLUE), AmbientColor.BLUE))
+        assertTrue(PleosMapping.ambientColorMatches(0x001E5BFF, AmbientColor.BLUE))          // 알파 무시
+        assertTrue(PleosMapping.ambientColorMatches(0xFF0050FF.toInt(), AmbientColor.BLUE))  // 팔레트 반올림
+        assertEquals(false, PleosMapping.ambientColorMatches(0xFFFF0000.toInt(), AmbientColor.BLUE))
+        assertEquals(false, PleosMapping.ambientColorMatches(null, AmbientColor.BLUE))
+    }
+
+    @Test
+    fun 진단_로그_링버퍼() {
+        PleosDiagnostics.clear()
+        repeat(PleosDiagnostics.CAPACITY + 5) { PleosDiagnostics.log("line $it") }
+        val lines = PleosDiagnostics.lines()
+        assertEquals(PleosDiagnostics.CAPACITY, lines.size)
+        assertTrue(lines.first().endsWith("line 5"))
+        assertTrue(lines.last().endsWith("line ${PleosDiagnostics.CAPACITY + 4}"))
+        PleosDiagnostics.clear()
+    }
+
+    @Test
     fun pickArea_선호_영역_우선() {
         assertEquals("b", PleosMapping.pickArea(listOf("a", "b")) { it == "b" })
         assertEquals("a", PleosMapping.pickArea(listOf("a", "c")) { it == "b" })
