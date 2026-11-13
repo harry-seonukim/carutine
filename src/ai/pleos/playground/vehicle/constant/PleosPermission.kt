@@ -1,0 +1,40 @@
+package ai.pleos.playground.vehicle.constant
+
+
+object PleosPermission {
+
+    const val CONTROL_CAR_CLIMATE: String = "pleos.car.permission.CONTROL_CAR_CLIMATE"
+    const val CONTROL_CAR_DOORS: String = "pleos.car.permission.CONTROL_CAR_DOORS"
+    const val CONTROL_CAR_ENERGY: String = "pleos.car.permission.CONTROL_CAR_ENERGY"
+    const val CONTROL_CAR_MIRRORS: String = "pleos.car.permission.CONTROL_CAR_MIRRORS"
+    const val CONTROL_CAR_SEATS: String = "pleos.car.permission.CONTROL_CAR_SEATS"
+    const val CONTROL_CAR_WINDOWS: String = "pleos.car.permission.CONTROL_CAR_WINDOWS"
+    const val CONTROL_CAR_INFO: String = "pleos.car.permission.CONTROL_CAR_INFO"
+    const val CONTROL_CAR_TOLL: String = "pleos.car.permission.CONTROL_CAR_TOLL"
+    const val CONTROL_CAR_DRIVE: String = "pleos.car.permission.CONTROL_CAR_DRIVE"
+    const val CONTROL_CAR_LIGHTS: String = "pleos.car.permission.CONTROL_CAR_LIGHTS"
+    const val CONTROL_CAR_SAFETY: String = "pleos.car.permission.CONTROL_CAR_SAFETY"
+    const val CAR_ENERGY: String = "pleos.car.permission.CAR_ENERGY"
+    const val CAR_INFO: String = "pleos.car.permission.CAR_INFO"
+    const val CAR_TOLL: String = "pleos.car.permission.CAR_TOLL"
+    const val CAR_DRIVE: String = "pleos.car.permission.CAR_DRIVE"
+    const val CAR_LIGHTS: String = "pleos.car.permission.CAR_LIGHTS"
+    const val CAR_SAFETY: String = "pleos.car.permission.CAR_SAFETY"
+    const val CAR_SEATS: String = "pleos.car.permission.CAR_SEATS"
+    const val CAR_CLIMATE: String = "pleos.car.permission.CAR_CLIMATE"
+    const val CAR_WINDOWS: String = "pleos.car.permission.CAR_WINDOWS"
+    const val CAR_DOORS: String = "pleos.car.permission.CAR_DOORS"
+    const val CAR_MIRRORS: String = "pleos.car.permission.CAR_MIRRORS"
+
+    const val PRIVATE_CAR_CLIMATE = "pleos.car.permission.PRIVATE_CAR_CLIMATE"
+    const val PRIVATE_CAR_DOORS = "pleos.car.permission.PRIVATE_CAR_DOORS"
+    const val PRIVATE_CAR_ENERGY = "pleos.car.permission.PRIVATE_CAR_ENERGY"
+    const val PRIVATE_CAR_MIRRORS = "pleos.car.permission.PRIVATE_CAR_MIRRORS"
+    const val PRIVATE_CAR_SEATS = "pleos.car.permission.PRIVATE_CAR_SEATS"
+    const val PRIVATE_CAR_WINDOWS = "pleos.car.permission.PRIVATE_CAR_WINDOWS"
+    const val PRIVATE_CAR_INFO = "pleos.car.permission.PRIVATE_CAR_INFO"
+    const val PRIVATE_CAR_TOLL = "pleos.car.permission.PRIVATE_CAR_TOLL"
+    const val PRIVATE_CAR_DRIVE = "pleos.car.permission.PRIVATE_CAR_DRIVE"
+    const val PRIVATE_CAR_LIGHTS = "pleos.car.permission.PRIVATE_CAR_LIGHTS"
+    const val PRIVATE_CAR_SAFETY = "pleos.car.permission.PRIVATE_CAR_SAFETY"
+}

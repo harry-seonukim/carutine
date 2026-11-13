@@ -1,0 +1,20 @@
+package ai.pleos.playground.vehicle.api.model.area
+
+import ai.pleos.playground.vehicle.constant.area.TurnSignalValue
+
+/**
+ * Represents one or more turn signal areas.
+ *
+ * @property values The selected turn signal area values.
+ */
+class TurnSignalArea(vararg val values : TurnSignalValue) : Area(){
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TurnSignalArea) return false
+        return values.contentEquals(other.values)
+    }
+
+    override fun hashCode(): Int {
+        return values.contentHashCode()
+    }
+}
