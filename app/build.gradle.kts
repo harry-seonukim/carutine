@@ -19,8 +19,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // release 서명: CI는 GitHub Secrets에서 받은 keystore를 환경 변수로 넘긴다.
+    // keystore가 없으면(로컬 빌드) debug 키로 서명해 설치 가능한 APK를 만든다.
+    val releaseKeystore = System.getenv("CARUTINE_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("CARUTINE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CARUTINE_KEY_ALIAS")
+                keyPassword = System.getenv("CARUTINE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = if (releaseKeystore != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
